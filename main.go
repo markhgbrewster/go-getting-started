@@ -1,29 +1,50 @@
 package main
 
 import (
-	"log"
-	"net/http"
+	"bufio"
+	"fmt"
+	"io"
+	"net"
 	"os"
-
-	"github.com/gin-gonic/gin"
-	_ "github.com/heroku/x/hmetrics/onload"
 )
 
-func main() {
-	port := os.Getenv("PORT")
+var port = ":5000"
 
-	if port == "" {
-		log.Fatal("$PORT must be set")
+func echo(conn net.Conn) {
+	r := bufio.NewReader(conn)
+	for {
+		line, err := r.ReadBytes(byte('\n'))
+		switch err {
+		case nil:
+			break
+		case io.EOF:
+		default:
+			fmt.Println("ERROR", err)
+		}
+		conn.Write(line)
+	}
+}
+
+func main() {
+        fmt.Println("Starting server...")
+
+	l, err := net.Listen("tcp", port)
+        fmt.Println("Waiting for players...")
+
+	if err != nil {
+		fmt.Println("ERROR", err)
+		os.Exit(1)
 	}
 
-	router := gin.New()
-	router.Use(gin.Logger())
-	router.LoadHTMLGlob("templates/*.tmpl.html")
-	router.Static("/static", "static")
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("ERROR", err)
+			continue
+		}
+            // Handle connections in a new goroutine.
+            // go myHandler(conn)
+            go echo(conn)
+	}
 
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl.html", nil)
-	})
-
-	router.Run(":" + port)
 }
